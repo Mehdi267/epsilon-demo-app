@@ -3,6 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#define DIFF 15  
+#define WIDTH 70 
+#define HEIGHT 10  
+
 const char eadk_app_name[]
 #if PLATFORM_DEVICE
   __attribute__((section(".rodata.eadk_app_name")))
@@ -49,36 +53,65 @@ void draw_random_buffer() {
   free(pixels);
 }
 
+void collision_bordure(eadk_rect_t* rec_src, int *dir_x, int *dir_y){
+  if ((rec_src->y < 0) || (rec_src->y + rec_src->height > EADK_SCREEN_HEIGHT)){
+    *dir_y*=-1;
+  } 
+  if ((rec_src->x < 0) || (rec_src->x + rec_src->width > EADK_SCREEN_WIDTH)){
+    *dir_x*=-1;
+  }
+}
+
+// void collision_bordure(eadk_rect_t* rec_src, eadk_rect_t* target_src){
+//   if ((rec_src->y < 0) || (rec_src->y + rec_src->height > EADK_SCREEN_HEIGHT)){
+//   } 
+//   if ((rec_src->x < 0) || (rec_src->x + rec_src->width > EADK_SCREEN_WIDTH)){
+//   }
+// }
+
+
+#define MOV 5
 void move_pointer() {
   uint16_t size = 10;
   eadk_rect_t cursor = {(EADK_SCREEN_WIDTH-size)/2, (EADK_SCREEN_HEIGHT-size)/2, size, size};
+  eadk_rect_t bar = {(EADK_SCREEN_WIDTH-WIDTH)/2, EADK_SCREEN_HEIGHT - DIFF , WIDTH, HEIGHT};
+  eadk_rect_t screen = {0, 0, EADK_SCREEN_WIDTH, EADK_SCREEN_HEIGHT};
+  int dir_x = 1;
+  int dir_y = -1;
   while (true) {
     eadk_keyboard_state_t keyboard = eadk_keyboard_scan();
+    // eadk_display_pull_rect(bar, eadk_color_white);
     if (eadk_keyboard_key_down(keyboard, eadk_key_back)) {
       return;
     }
-    if (eadk_keyboard_key_down(keyboard, eadk_key_left) && cursor.x > 0) {
-      cursor.x -= 1;
+    if (eadk_keyboard_key_down(keyboard, eadk_key_left) && bar.x > 0) {
+      bar.x -= MOV;
     }
-    if (eadk_keyboard_key_down(keyboard, eadk_key_up) && cursor.y > 0) {
-      cursor.y -= 1;
+    if (eadk_keyboard_key_down(keyboard, eadk_key_right) && bar.x < EADK_SCREEN_WIDTH-size ) {
+      if (!(bar.x + WIDTH + MOV > EADK_SCREEN_WIDTH))
+        bar.x += MOV;
     }
-    if (eadk_keyboard_key_down(keyboard, eadk_key_right) && cursor.x < EADK_SCREEN_WIDTH-size ) {
-      cursor.x += 1;
-    }
-    if (eadk_keyboard_key_down(keyboard, eadk_key_down) && cursor.y < EADK_SCREEN_HEIGHT-size) {
-      cursor.y += 1;
-    }
-    eadk_display_push_rect_uniform(cursor, random_color());
+    eadk_rect_t temp;
+    memcpy(&temp, &cursor, sizeof(eadk_rect_t));
+    temp.x += MOV*dir_x;
+    temp.y += MOV*dir_y;
+    collision_bordure(&temp, &dir_x, &dir_y);
+    cursor.x += MOV*dir_x;
+    cursor.y += MOV*dir_y;
+    
+
+    eadk_display_push_rect_uniform(screen, eadk_color_black);
+    eadk_display_push_rect_uniform(cursor, eadk_color_green);
+    eadk_display_push_rect_uniform(bar, eadk_color_white);
+    eadk_display_wait_for_vblank();
     eadk_timing_msleep(20);
   }
 }
 
+
+
 int main(int argc, char * argv[]) {
   printf("External data : '%s'\n", eadk_external_data);
-  eadk_timing_msleep(3000);
-  draw_random_colorful_rectangles();
-  draw_random_buffer();
-  eadk_display_draw_string("Hello, world!", (eadk_point_t){0, 0}, true, eadk_color_black, eadk_color_white);
+  // eadk_timing_msleep(3000);
   move_pointer();
 }
